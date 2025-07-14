@@ -5,7 +5,11 @@ import java.util.List;
 import com.example.demo.dto.request.ClassRequest;
 import com.example.demo.dto.response.ClassResponse;
 
-public interface ClassService {
+/**
+ * Simple Class Service without RabbitMQ messaging
+ * For performance comparison testing
+ */
+public interface ClassSimpleService {
     // Create operations
     ClassResponse createClass(ClassRequest request);
     

@@ -10,9 +10,8 @@ import com.example.demo.entity.ClassEntity;
 import com.example.demo.mapper.request.ClassRequestMapper;
 import com.example.demo.mapper.response.ClassResponseMapper;
 import com.example.demo.repository.ClassRepository;
-import com.example.demo.service.ClassService;
+import com.example.demo.service.ClassSimpleService;
 import com.example.demo.service.RedisService;
-import com.example.demo.service.messaging.ClassMessagingService;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -20,41 +19,37 @@ import lombok.extern.slf4j.Slf4j;
 @Service
 @RequiredArgsConstructor
 @Slf4j
-public class ClassServiceImpl implements ClassService {
+public class ClassSimpleServiceImpl implements ClassSimpleService {
     private final ClassRepository classRepository;
     private final ClassRequestMapper requestMapper;
     private final ClassResponseMapper responseMapper;
     private final RedisService redisService;
-    private final ClassMessagingService messagingService;
     
     @Override
     public ClassResponse createClass(ClassRequest request) {
         try {
-            log.info("Creating new class with name: {}", request.getName());
+            log.info("SIMPLE - Creating new class with name: {}", request.getName());
             
             // Convert DTO to Entity
             ClassEntity entity = requestMapper.toEntity(request);
             
             // Save to database
             ClassEntity savedEntity = classRepository.save(entity);
-            log.info("Class created successfully with id: {}", savedEntity.getId());
+            log.info("SIMPLE - Class created successfully with id: {}", savedEntity.getId());
             
             // Convert to response DTO
             ClassResponse response = responseMapper.toDto(savedEntity);
             
             // Cache the new class
-            String cacheKey = "class:" + savedEntity.getId();
+            String cacheKey = "simple-class:" + savedEntity.getId();
             redisService.set(cacheKey, response);
             
-            // Send RabbitMQ message
-            messagingService.notifyClassCreated(savedEntity.getId(), savedEntity.getName());
-            log.info("Class creation notification sent to RabbitMQ for id: {}", savedEntity.getId());
-            
+            // NO RabbitMQ message here - this is the difference!
+            log.info("SIMPLE - Class creation completed (NO RabbitMQ) for id: {}", savedEntity.getId());
             return response;
             
         } catch (Exception e) {
-            log.error("Error creating class with name: {}: {}", request.getName(), e.getMessage(), e);
-            messagingService.notifyClassOperationFailed(null, request.getName(), "CREATE", e.getMessage());
+            log.error("SIMPLE - Error creating class with name: {}: {}", request.getName(), e.getMessage(), e);
             throw new RuntimeException("Failed to create class", e);
         }
     }
@@ -62,12 +57,12 @@ public class ClassServiceImpl implements ClassService {
     @Override
     public List<ClassResponse> getAllClasses() {
         try {
-            log.info("Fetching all classes");
+            log.info("SIMPLE - Fetching all classes");
             List<ClassResponse> classes = responseMapper.toListDto(classRepository.findAll());
-            log.info("Successfully fetched {} classes", classes.size());
+            log.info("SIMPLE - Successfully fetched {} classes", classes.size());
             return classes;
         } catch (Exception e) {
-            log.error("Error fetching all classes: {}", e.getMessage(), e);
+            log.error("SIMPLE - Error fetching all classes: {}", e.getMessage(), e);
             throw new RuntimeException("Failed to fetch classes", e);
         }
     }
@@ -75,13 +70,13 @@ public class ClassServiceImpl implements ClassService {
     @Override
     public ClassResponse getClassById(Integer id) {
         try {
-            log.info("Fetching class with id: {}", id);
+            log.info("SIMPLE - Fetching class with id: {}", id);
             
             // Check cache first
-            String cacheKey = "class:" + id;
+            String cacheKey = "simple-class:" + id;
             ClassResponse cachedClass = redisService.get(cacheKey, ClassResponse.class);
             if (cachedClass != null) {
-                log.info("Cache hit for class with id: {}", id);
+                log.info("SIMPLE - Cache hit for class with id: {}", id);
                 return cachedClass;
             }
 
@@ -93,12 +88,12 @@ public class ClassServiceImpl implements ClassService {
             
             // Cache the result
             redisService.set(cacheKey, response);
-            log.info("Class with id: {} cached successfully", id);
+            log.info("SIMPLE - Class with id: {} cached successfully", id);
             
             return response;
             
         } catch (Exception e) {
-            log.error("Error fetching class with id: {}: {}", id, e.getMessage(), e);
+            log.error("SIMPLE - Error fetching class with id: {}: {}", id, e.getMessage(), e);
             throw e;
         }
     }
@@ -106,7 +101,7 @@ public class ClassServiceImpl implements ClassService {
     @Override
     public ClassResponse updateClass(Integer id, ClassRequest request) {
         try {
-            log.info("Updating class with id: {}", id);
+            log.info("SIMPLE - Updating class with id: {}", id);
             
             // Check if class exists
             ClassEntity existingEntity = classRepository.findById(id)
@@ -117,24 +112,22 @@ public class ClassServiceImpl implements ClassService {
             
             // Save updated entity
             ClassEntity updatedEntity = classRepository.save(existingEntity);
-            log.info("Class updated successfully with id: {}", updatedEntity.getId());
+            log.info("SIMPLE - Class updated successfully with id: {}", updatedEntity.getId());
             
             // Convert to response DTO
             ClassResponse response = responseMapper.toDto(updatedEntity);
             
             // Update cache
-            String cacheKey = "class:" + id;
+            String cacheKey = "simple-class:" + id;
             redisService.set(cacheKey, response);
             
-            // Send RabbitMQ message
-            messagingService.notifyClassUpdated(updatedEntity.getId(), updatedEntity.getName());
-            log.info("Class update notification sent to RabbitMQ for id: {}", updatedEntity.getId());
+            // NO RabbitMQ message here!
+            log.info("SIMPLE - Class update completed (NO RabbitMQ) for id: {}", updatedEntity.getId());
             
             return response;
             
         } catch (Exception e) {
-            log.error("Error updating class with id: {}: {}", id, e.getMessage(), e);
-            messagingService.notifyClassOperationFailed(id, request.getName(), "UPDATE", e.getMessage());
+            log.error("SIMPLE - Error updating class with id: {}: {}", id, e.getMessage(), e);
             throw e;
         }
     }
@@ -142,7 +135,7 @@ public class ClassServiceImpl implements ClassService {
     @Override
     public void deleteClass(Integer id) {
         try {
-            log.info("Deleting class with id: {}", id);
+            log.info("SIMPLE - Deleting class with id: {}", id);
             
             // Check if class exists
             ClassEntity existingEntity = classRepository.findById(id)
@@ -152,22 +145,18 @@ public class ClassServiceImpl implements ClassService {
             
             // Delete from database
             classRepository.deleteById(id);
-            log.info("Class deleted successfully with id: {}", id);
+            log.info("SIMPLE - Class deleted successfully with id: {}", id);
             
             // Remove from cache
-            String cacheKey = "class:" + id;
+            String cacheKey = "simple-class:" + id;
             redisService.del(cacheKey);
             
-            // Send RabbitMQ message
-            messagingService.notifyClassDeleted(id, className);
-            log.info("Class deletion notification sent to RabbitMQ for id: {}", id);
+            // NO RabbitMQ message here!
+            log.info("SIMPLE - Class deletion completed (NO RabbitMQ) for id: {}", id);
             
         } catch (Exception e) {
-            log.error("Error deleting class with id: {}: {}", id, e.getMessage(), e);
-            messagingService.notifyClassOperationFailed(id, null, "DELETE", e.getMessage());
+            log.error("SIMPLE - Error deleting class with id: {}: {}", id, e.getMessage(), e);
             throw e;
         }
     }
-    
-    
 }

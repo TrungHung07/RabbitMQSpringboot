@@ -11,6 +11,5 @@ import lombok.Setter;
 @AllArgsConstructor
 @Builder
 public class ClassRequest {
-    private int id;
     private String name;
 }
